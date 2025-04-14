@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
       // one city can have many airports
       this.hasMany(models.Airport, {
         foreignKey: "cityId",
+        onDelete: "CASCADE",
       });
     }
   }
