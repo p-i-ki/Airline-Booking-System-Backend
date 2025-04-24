@@ -28,17 +28,21 @@ async function createFlight(data) {
   }
 }
 
-// /api/v1/flights?trips=MUL-DEL+price=1000-5000+travellers=2 ...
+// /api/v1/flights?trips=MUL-DEL&price=1000-5000&travellers=2&tripDate=2025-04-22&sort=departureTime_ASC,price_DESC ...
+// Refer to Flipkart flights search:
 async function getAllFlights(query) {
   try {
     let customFilter = {};
+    const endingTripTime = " 23:59:00";
+    let sortFilters = [];
+
     // trips=MUM-DEL format
     if (query.trips) {
-      // query is a object with fields like trips,price,travellers etc..
+      // query is an object with fields like trips,price,travellers etc..
       const [departureAirportId, arrivalAirportId] = query.trips.split("-");
       customFilter.departureAirportId = departureAirportId;
       customFilter.arrivalAirportId = arrivalAirportId;
-      //TODO: check that departur and arrival airport are not same
+      // check that departur and arrival airports are not same
       if (departureAirportId == arrivalAirportId) {
         throw new AppError(
           "Departure and Arrival airport Id can not be same",
@@ -64,7 +68,24 @@ async function getAllFlights(query) {
         [Op.gte]: query.travellers,
       };
     }
-    const flights = await flightRepository.getAllFlights(customFilter);
+    // 2025-04-22
+    if (query.tripDate) {
+      customFilter.departureTime = {
+        // by default tripDate will have starting time 00:00:00 : so it will query all the flights on a particular data from 00:00:00 to 23:59:00
+        [Op.between]: [query.tripDate, query.tripDate + endingTripTime],
+      };
+    }
+    // sort = departureTime_ASC,price_DESC
+    // if both derpartureTime and price are passed then price will apply on sorting if two flights have same departureTime, so send only price if u want to sort on the basis of flights prices.
+    if (query.sort) {
+      const params = query.sort.split(","); // [ 'departureTime_ASC', 'price_DESC' ]
+      const sortFilter = params.map((param) => param.split("_")); // [['departureTime', 'ASC'],['price', 'DESC']]
+      sortFilters = sortFilter;
+    }
+    const flights = await flightRepository.getAllFlights(
+      customFilter,
+      sortFilters
+    );
     return flights;
   } catch (error) {
     if (error instanceof AppError) {
@@ -81,3 +102,30 @@ module.exports = {
   createFlight,
   getAllFlights,
 };
+
+// customFilter:
+// {
+// departureAirportId : departureAirportId;
+// arrivalAirportId : arrivalAirportId;
+// price: {
+//   [Op.between]: [
+//     minPrice == undefined ? 0 : minPrice,
+//     maxPrice == undefined ? 30000 : maxPrice,
+//   ],
+// },
+// totalSeats: {
+//   [Op.gte]: query.travellers,
+// },
+// departureTime: {
+//   [Op.between]: [query.tripDate, query.tripDate + endingTripTime],
+// },
+// }
+
+// Sorting:
+// Departure Time in Ascending Order (ASC) – This means flights will be listed starting from the earliest departure time to the latest.
+// Price in Descending Order (DESC) – Within the same departure time, flights will be sorted from the most expensive to the cheapest.
+// So the primary sorting factor is departure time (earliest flights first), and within flights that have the same departure time, the more expensive ones appear first.
+// If you write order: [ [ 'price', 'DESC' ], [ 'departureTime', 'ASC' ] ], the sorting priority will change:
+// Price in Descending Order (DESC) – Flights will be listed starting from the most expensive to the cheapest.
+// Departure Time in Ascending Order (ASC) – Within the same price range, flights with earlier departure times will appear first.
+// Also you can pass only sort=price_DESC to sort only on the basis of price.

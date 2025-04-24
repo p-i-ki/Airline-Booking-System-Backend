@@ -5,15 +5,18 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // Every flight is an airplane, so it has a airplaneId
       this.belongsTo(models.Airplane, {
-        foreignKey: "airplaneId",
+        foreignKey: "airplaneId", // if you don't pass it here then sequelize will automatically name fkey as airplaneId
+        as: "airplane_detail",
       });
       // Every flight will be arrived at some airport:
       this.belongsTo(models.Airport, {
-        foreignKey: "arrivalAirportId",
+        foreignKey: "arrivalAirportId", // if you don't pass it here then sequelize will automatically name fkey as airportId
+        as: "arrival_airport",
       });
       // Every flight will be departued from some airport:
       this.belongsTo(models.Airport, {
-        foreignKey: "departureAirportId",
+        foreignKey: "departureAirportId", // if you don't pass it here then sequelize will automatically name fkey as airportId
+        as: "departure_airport",
       });
     }
   }
